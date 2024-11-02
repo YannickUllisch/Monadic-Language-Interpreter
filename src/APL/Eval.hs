@@ -63,31 +63,32 @@ eval (Apply e1 e2) = do
       evalStep $ localEnv (const $ envExtend var arg f_env) $ eval body
     (_, _) ->
       failure "Cannot apply non-function"
-eval (KvPut k_exp v_exp) = do -- Implemented kvPut to make test case work
+eval (KvPut k_exp v_exp) = do
   k <- eval k_exp
   v <- eval v_exp
   evalKvPut k v
   pure v
-eval (KvGet k_exp) = do -- Implemented kvGet to make test case work
+eval (KvGet k_exp) = do 
   k <- eval k_exp
   evalKvGet k
-eval (Tuple exps) = do
-  vals <- mapM eval exps
-  pure (ValTuple vals)
+eval (Tuple exps)
+  | length exps == 1 = failure "Single element tuples are not allowed"
+  | otherwise = do
+      vals <- mapM eval exps
+      pure $ ValTuple vals
 eval (Project e1 i) = do
   res <- eval e1
   case res of 
-    ValTuple vals ->
-      if i >= 0 && fromInteger i < length vals
-        then pure (vals !! fromInteger i)
-        else failure $ "Given index " ++ show i ++ " is out of bounds"
+    ValTuple vals
+      | i >= 0 && fromInteger i < length vals -> pure $ vals !! fromInteger i -- Indexing 
+      | otherwise -> failure $ "Given index " ++ show i ++ " is out of bounds"
     _ -> failure "Cannot project an element from non tuple type"
 eval (ForLoop (name, initial) (cName, bound) body) = do
   v <- eval initial
   n <- eval bound
   case n of 
     ValInt nc -> executeLoop 0 v nc
-    _ -> failure "given bound must be of type integer"
+    _ -> failure "Given bound must be of type integer"
   where
     executeLoop i v n
       | i >= n = pure v -- case that loop is finished
@@ -105,7 +106,7 @@ eval (WhileLoop (name, initialExp) cond body) = do
           updated <- evalStep $ localEnv (envExtend name v) (eval body)
           loopWhile updated
         ValBool False -> pure v
-        _ -> failure "condition must evaluate to boolean"
+        _ -> failure "Condition must evaluate to boolean"
 eval (BothOf e1 e2) = do
   evalBothOf (eval e1) (eval e2)
 eval (OneOf e1 e2) = do

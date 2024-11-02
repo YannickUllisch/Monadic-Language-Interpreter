@@ -57,7 +57,15 @@ tests =
         "Concurrency Operators"
         [
           parserTest "(1+2) && (3+4)" $ BothOf (Add (CstInt 1) (CstInt 2)) (Add (CstInt 3) (CstInt 4)),
-          parserTest "(1+2) || (3+4+5+6)" $ OneOf (Add (CstInt 1) (CstInt 2)) (Add (Add (Add (CstInt 3) (CstInt 4)) (CstInt 5)) (CstInt 6))
+          parserTest "(1+2) || (3+4+5+6)" $ OneOf (Add (CstInt 1) (CstInt 2)) (Add (Add (Add (CstInt 3) (CstInt 4)) (CstInt 5)) (CstInt 6)),
+          parserTest "((2*3) && (4-1))" $ BothOf (Mul (CstInt 2) (CstInt 3)) (Sub (CstInt 4) (CstInt 1)),
+          parserTest "(5 || (2+3) * 4)" $ OneOf (CstInt 5) (Mul (Add (CstInt 2) (CstInt 3)) (CstInt 4)),
+          parserTest "(10/2) && ((3*2) || (1-1))" $ BothOf (Div (CstInt 10) (CstInt 2)) (OneOf (Mul (CstInt 3) (CstInt 2)) (Sub (CstInt 1) (CstInt 1))),
+          parserTest "((1 && 2) || (3 && 4))" $ OneOf (BothOf (CstInt 1) (CstInt 2)) (BothOf (CstInt 3) (CstInt 4)),
+          parserTest "((3+4) || (5-2)) && (8*7)" $ BothOf (OneOf (Add (CstInt 3) (CstInt 4)) (Sub (CstInt 5) (CstInt 2))) (Mul (CstInt 8) (CstInt 7)),
+          parserTest "42 && ((10/2) || 3)" $ BothOf (CstInt 42) (OneOf (Div (CstInt 10) (CstInt 2)) (CstInt 3)),
+          parserTest "(3 || 5) && (4 || 6)" $ BothOf (OneOf (CstInt 3) (CstInt 5)) (OneOf (CstInt 4) (CstInt 6)),
+          parserTest "((1+2) && 3) || (4+5)" $ OneOf (BothOf (Add (CstInt 1) (CstInt 2)) (CstInt 3)) (Add (CstInt 4) (CstInt 5))
         ]
     ]
     

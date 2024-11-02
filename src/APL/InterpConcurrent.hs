@@ -3,9 +3,11 @@ module APL.InterpConcurrent (runEval) where
 
 import APL.Monad
 --import Data.IORef
+--import Control.Concurrent(threadDelay)
 import KVDB
 import SPC
 import Control.Concurrent.MVar
+
 
 runEval :: EvalM a -> IO (Either Error a)
 runEval m = do
@@ -25,23 +27,35 @@ runEval m = do
     runEval' r db (Free (StepOp cont)) = runEval' r db cont
     runEval' r db (Free (BothOfOp e1 e2 c)) = do
         spc <- startSPC
+
+        --ref1 <- newIORef (Left "Job not completed")
+        --ref2 <- newIORef (Left "Job not completed")
+
         result1 <- newEmptyMVar
         result2 <- newEmptyMVar
 
         _ <- jobAdd spc $ Job {
             jobAction = do
                 res1 <- runEval' r db e1
+                --writeIORef ref1 res1
                 putMVar result1 res1
         }
 
         _ <- jobAdd spc $ Job {
             jobAction = do
                 res2 <- runEval' r db e2
+                --writeIORef ref2 res2
                 putMVar result2 res2
         }
 
         res1 <- takeMVar result1
         res2 <- takeMVar result2
+
+        -- Implement a 5 second timeout delay to wait for Jobs to finish. 
+        -- threadDelay 1500000
+        -- res1 <- readIORef ref1
+        -- res2 <- readIORef ref2
+
         case (res1, res2) of
             (Right v1, Right v2) -> runEval' r db (c (ValTuple [v1, v2]))
             (Left e, _) -> pure (Left e)

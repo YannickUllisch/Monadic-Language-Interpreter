@@ -60,33 +60,23 @@ lString s = lexeme $ void $ chunk s
 lKeyword :: String -> Parser ()
 lKeyword s = lexeme $ void $ try $ chunk s <* notFollowedBy (satisfy isAlphaNum)
 
-lEmptyTuple :: Parser Exp
-lEmptyTuple = do
-  lString "("
-  lString ")"
-  pure $ Tuple []
-
-lTuple :: Parser Exp
-lTuple = do
-  lString "("
-  e <- pExp
-  rest <- many $ lString "," *> pExp
-  lString ")"
-  pure $ Tuple (e : rest)
-
-lProjection :: Parser Exp
-lProjection = do
-  x <- pAtom
-  lString "."
-  index <- lInteger
-  pure $ Project x index
-
 pBool :: Parser Bool
 pBool =
   choice
-    [ const True <$> lKeyword "true",
-      const False <$> lKeyword "false"
+    [ True <$ lKeyword "true",
+      False <$ lKeyword "false"
     ]
+
+-- | We extract comma separated expression parsing into its own lexer function
+-- to make it reusable in the future for e.g. list parsing 
+lCommaSepExpr :: Parser [Exp]
+lCommaSepExpr = do
+  e <- pExp
+  rest <- many $ lString "," *> pExp
+  pure (e : rest)
+
+lTuple :: Parser Exp
+lTuple = lexeme $ Tuple <$> (lString "(" *> lCommaSepExpr <* lString ")")
 
 pAtom :: Parser Exp
 pAtom =
@@ -94,28 +84,32 @@ pAtom =
     [ CstInt <$> lInteger,
       CstBool <$> pBool,
       Var <$> lVName,
-      try lEmptyTuple,
+      try $ Tuple [] <$ (lString "(" *> lString ")"), -- Parsing empty tuples
       try $ lString "(" *> pExp <* lString ")",
-      try lTuple,
+      try lTuple, 
       KvPut <$> (lKeyword "put" *> pAtom) <*> pAtom,
       KvGet <$> (lKeyword "get" *> pAtom)
     ]
 
-pProjExp :: Parser Exp
-pProjExp =
-  choice
-    [ 
-      try lProjection,
-      pAtom
-    ]
-
-pFExp :: Parser Exp
-pFExp = chain =<< pProjExp
+pPExp :: Parser Exp
+pPExp = chain =<< pAtom
   where
     chain x =
       choice
         [ do
-            y <- pProjExp
+            lString "."
+            i <- lInteger
+            chain $ Project x i,
+          pure x
+        ]
+
+pFExp :: Parser Exp
+pFExp = chain =<< pPExp
+  where
+    chain x =
+      choice
+        [ do
+            y <- pPExp
             chain $ Apply x y,
           pure x
         ]
@@ -134,14 +128,14 @@ pLExp =
         <$> (lKeyword "let" *> lVName)
         <*> (lString "=" *> pExp)
         <*> (lKeyword "in" *> pExp),
-      try $ WhileLoop
-        <$> ((,) <$> (lKeyword "loop" *> lVName) <*> (lString "=" *> pExp)) -- We pair init in a tuple
-        <*> (lKeyword "while" *> pExp)
-        <*> (lKeyword "do" *> pExp),  
-      try $ ForLoop 
+      try $ ForLoop
         <$> ((,) <$> (lKeyword "loop" *> lVName) <*> (lKeyword "=" *> pExp)) -- We pair parsed into a tuple to conform AST definition
         <*> ((,) <$> (lKeyword "for" *> lVName) <*> (lString "<" *> pExp)) -- Again pair parsed into a tuple
-        <*> (lKeyword "do" *> pExp),   
+        <*> (lKeyword "do" *> pExp),
+      try $ WhileLoop
+        <$> ((,) <$> (lKeyword "loop" *> lVName) <*> (lString "=" *> pExp))
+        <*> (lKeyword "while" *> pExp)
+        <*> (lKeyword "do" *> pExp),
       pFExp
     ]
 
@@ -188,7 +182,7 @@ pExp1 = pExp2 >>= chain
             chain $ Eql x y,
           pure x
         ]
-      
+
 pExp0 :: Parser Exp
 pExp0 = pExp1 >>= chain
   where
