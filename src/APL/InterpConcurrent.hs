@@ -2,12 +2,9 @@
 module APL.InterpConcurrent (runEval) where
 
 import APL.Monad
---import Data.IORef
---import Control.Concurrent(threadDelay)
+import Data.IORef
 import KVDB
 import SPC
-import Control.Concurrent.MVar
-
 
 runEval :: EvalM a -> IO (Either Error a)
 runEval m = do
@@ -28,60 +25,91 @@ runEval m = do
     runEval' r db (Free (BothOfOp e1 e2 c)) = do
         spc <- startSPC
 
-        --ref1 <- newIORef (Left "Job not completed")
-        --ref2 <- newIORef (Left "Job not completed")
-
-        result1 <- newEmptyMVar
-        result2 <- newEmptyMVar
-
-        _ <- jobAdd spc $ Job {
-            jobAction = do
-                res1 <- runEval' r db e1
-                --writeIORef ref1 res1
-                putMVar result1 res1
-        }
-
-        _ <- jobAdd spc $ Job {
-            jobAction = do
-                res2 <- runEval' r db e2
-                --writeIORef ref2 res2
-                putMVar result2 res2
-        }
-
-        res1 <- takeMVar result1
-        res2 <- takeMVar result2
-
-        -- Implement a 5 second timeout delay to wait for Jobs to finish. 
-        -- threadDelay 1500000
-        -- res1 <- readIORef ref1
-        -- res2 <- readIORef ref2
-
-        case (res1, res2) of
-            (Right v1, Right v2) -> runEval' r db (c (ValTuple [v1, v2]))
-            (Left e, _) -> pure (Left e)
-            (_, Left e) -> pure (Left e)
-    runEval' r db (Free (OneOfOp e1 e2 c)) = do
-        spc <- startSPC
-        initRes <- newEmptyMVar
+        ref1 <- newIORef (Left "Job not completed")
+        ref2 <- newIORef (Left "Job not completed")
 
         jid1 <- jobAdd spc $ Job {
             jobAction = do
                 res1 <- runEval' r db e1
-                putMVar initRes res1
+                writeIORef ref1 res1
         }
 
         jid2 <- jobAdd spc $ Job {
             jobAction = do
                 res2 <- runEval' r db e2
-                putMVar initRes res2
+                writeIORef ref2 res2
         }
 
-        res <- takeMVar initRes
+        -- Wait for both jobs to be completed 
+        (_, reason1) <- jobWaitAny spc [jid1]
+        (_, reason2) <- jobWaitAny spc [jid2]
 
-        -- We cancel both jobs to avoid consuming resources
-        jobCancel spc jid1
-        jobCancel spc jid2
+        -- Matching reasons, we only return the tuple if both Jobs completed successfully
+        case (reason1, reason2) of
+            (Done, Done) -> do
+                res1 <- readIORef ref1
+                res2 <- readIORef ref2
+                case (res1, res2) of
+                    (Right v1, Right v2) -> runEval' r db (c (ValTuple [v1, v2]))
+                    (Left e, _) -> pure (Left e)
+                    (_, Left e) -> pure (Left e)
+            (Done, _) -> pure $ Left "Job 2 did failed"
+            (_, Done) -> pure $ Left "Job 1 did failed"
+            _ -> pure $ Left "Both jobs failed"
+    runEval' r db (Free (OneOfOp e1 e2 c)) = do
+        spc <- startSPC
 
-        case res of
-            Right val -> runEval' r db $ c val
-            Left e -> pure $ Left e
+        ref1 <- newIORef (Left "Job not completed")
+        ref2 <- newIORef (Left "Job not completed")
+
+
+        jid2 <- jobAdd spc $ Job {
+            jobAction = do
+                res2 <- runEval' r db e2
+                writeIORef ref2 res2
+        }
+        jid1 <- jobAdd spc $ Job {
+            jobAction = do
+                res1 <- runEval' r db e1
+                writeIORef ref1 res1
+        }
+
+        -- Wait for both jobs to be completed 
+        (fstId, rsn1) <- jobWaitAny spc [jid1, jid2]
+
+        -- Helper function to find correct return value
+        let readResult jid = readIORef $ if jid == jid1 then ref1 else ref2
+
+        
+        -- Helper function that reads the result from a done job
+        -- and matches its output
+        let processDoneJob jid = do
+                res <- readResult jid
+                case res of
+                    Right val -> runEval' r db $ c val
+                    Left e -> pure $ Left e
+
+        -- Mapping first completed job and remaining job to a tuple
+        -- we need these to correctly check job results for failures
+        let (firstCompleted, remainingJid) = (fstId, if fstId == jid1 then jid2 else jid1)
+
+        case rsn1 of
+            Done -> do
+                res1 <- readResult firstCompleted
+                case res1 of
+                    Right val -> do
+                        jobCancel spc remainingJid -- Cancelling remaining job
+                        runEval' r db $ c val
+                    Left _ -> do  
+                        -- We first check status, since it might have completed while executing the above code
+                        status <- jobStatus spc remainingJid
+                        case status of
+                            JobDone Done -> processDoneJob remainingJid
+                            _ -> do
+                                -- If not completed we wait for it to complete
+                                (_, rsn2) <- jobWaitAny spc [remainingJid]
+                                case rsn2 of
+                                    Done -> processDoneJob remainingJid
+                                    _ -> pure $ Left "Both Jobs failed"
+            _ -> pure $ Left "First job did not complete successfully"
+            

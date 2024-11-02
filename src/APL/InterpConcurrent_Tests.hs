@@ -27,6 +27,38 @@ tests =
   testGroup
     "Concurrent interpreter"
     [
+      testGroup
+        "Concurrency Operators"
+        [
+          --  
+          evalTestFail
+            "BothOf failure in e1"
+            (BothOf (Div (CstBool True) (CstInt 0) ) (Div (CstInt 2) (CstInt 2))),
+          --
+          evalTestFail
+            "BothOf failure in e2"
+            (BothOf (Div (CstInt 5) (CstInt 5) ) (Div (CstInt 2) (CstInt 0))),
+          --
+          evalTestFail
+            "BothOf failure in e2"
+            (BothOf (Div (CstBool True) (CstInt 5) ) (Div (CstBool True) (CstInt 0))),
+          --
+          evalTestFail
+            "OneOf Both Fail"
+            (OneOf (Div (CstInt 5) (CstInt 0)) (Div (CstInt 2) (CstInt 0))),  
+          --
+          evalTest
+            "OneOf Left Fails"
+            (OneOf (Div (CstInt 5) (CstInt 0)) (Div (CstInt 2) (CstInt 2)))
+            (ValInt 1),
+          --
+          evalTest
+            "OneOf Right Fails"
+            (OneOf (Div (CstInt 5) (CstInt 5)) (Div (CstInt 2) (CstInt 0)))
+            (ValInt 1)
+          --
+        ],
+
       evalTest 
         "(1+2) && (3+4)"
         (BothOf (Add (CstInt 1) (CstInt 2)) (Add (CstInt 3) (CstInt 4)))
