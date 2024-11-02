@@ -21,17 +21,17 @@ runEval = fst <$> runEval' envEmpty stateInitial
       let s' = (key, val) : filter ((/= key) . fst) s
        in runEval' r s' m
     runEval' _ s (Free (ErrorOp e)) = (Left e, s)
-    runEval' r s (Free (StepOp contin)) = runEval' r s contin
+    runEval' r s (Free (StepOp c)) = runEval' r s c
     runEval' r s (Free (BothOfOp e1 e2 c)) =
       let (res1, s') = runEval' r s e1
           (res2, s'') = runEval' r s' e2
       in case (res1, res2) of
-            (Right vx, Right vy) -> runEval' r s'' $ c (ValTuple [vx, vy])
-            (Left e, _) -> (Left e, s'')
-            (_, Left e) -> (Left e, s'')
+            (Right x, Right y) -> runEval' r s'' $ c (ValTuple [x, y])
+            (Left err, _) -> (Left err, s'')
+            (_, Left err) -> (Left err, s'')
     runEval' r s (Free (OneOfOp e1 e2 c)) =
       case runEval' r s e1 of
         (Right res, s') -> runEval' r s' $ c res
         (Left _, s') -> case runEval' r s' e2 of
           (Right res2, s'') -> runEval' r s'' $ c res2
-          (Left e, s'') -> (Left e, s'')
+          (Left err, s'') -> (Left err, s'')

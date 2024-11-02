@@ -51,7 +51,13 @@ tests =
           parserTest "loop x = 1 for i < 5 do x * 2" $ ForLoop ("x",CstInt 1) ("i",CstInt 5) (Mul (Var "x") (CstInt 2)),
           parserTest "loop x = 1 while x == 1 do x" $ WhileLoop ("x",CstInt 1) (Eql (Var "x") (CstInt 1)) (Var "x"),
           parserTest "loop x = (1,10) while if (x.1 == 0) then false else true do (x.0*2,x.1-1)" $ 
-            WhileLoop ("x",Tuple [CstInt 1,CstInt 10]) (If (Eql (Project (Var "x") 1) (CstInt 0)) (CstBool False) (CstBool True)) (Tuple [Mul (Project (Var "x") 0) (CstInt 2), Sub (Project (Var "x") 1) (CstInt 1)])
+            WhileLoop ("x",Tuple [CstInt 1,CstInt 10]) (If (Eql (Project (Var "x") 1) (CstInt 0)) (CstBool False) (CstBool True)) (Tuple [Mul (Project (Var "x") 0) (CstInt 2), Sub (Project (Var "x") 1) (CstInt 1)]),
+          parserTest "loop x = 0 for j < 3 do x + j" $ 
+            ForLoop ("x", CstInt 0) ("j", CstInt 3) (Add (Var "x") (Var "j")),
+          parserTest "loop z = (3, 5) for i < 4 do (z.0 + 1, z.1 * 2)" $ 
+            ForLoop ("z", Tuple [CstInt 3, CstInt 5]) ("i", CstInt 4) (Tuple [Add (Project (Var "z") 0) (CstInt 1), Mul (Project (Var "z") 1) (CstInt 2)]),
+          parserTest "loop a = 1 for i < 10 do a + i * 2" $ 
+            ForLoop ("a", CstInt 1) ("i", CstInt 10) (Add (Var "a") (Mul (Var "i") (CstInt 2)))
         ],
       testGroup 
         "Concurrency Operators"

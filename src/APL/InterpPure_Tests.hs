@@ -159,8 +159,26 @@ tests =
           --
           evalTestFail
             "State (unknown key)"
-            (KvGet (CstInt 0))
+            (KvGet (CstInt 0)),
           --
+          evalTest
+            "KvPut & KvGet"
+            (Let "x" (KvPut (CstInt 1) (CstInt 42)) (KvGet (CstInt 1)))
+            (ValInt 42),
+          -- 
+          evalTest
+            "KvPut overwrites key"
+            (Let "x" (KvPut (CstInt 2) (CstInt 100))
+                (Let "y" (KvPut (CstInt 2) (CstInt 200))
+                      (KvGet (CstInt 2))))
+            (ValInt 200),
+          --
+          evalTest
+            "Multiple KvPut & KvGet"
+            (Let "x" (KvPut (CstInt 3) (CstInt 10))
+                (Let "y" (KvPut (CstInt 4) (CstInt 20))
+                      (Tuple [KvGet (CstInt 3), KvGet (CstInt 4)])))
+            (ValTuple [ValInt 10, ValInt 20])
         ],
       testGroup
         "Loop Tests"
@@ -172,7 +190,7 @@ tests =
             (ValInt 1024),
           --
           evalTest 
-            "For loop2"
+            "For loop 2"
             (ForLoop ("x",CstInt 1) ("i",CstInt 5) (Mul (Var "x") (CstInt 2)))
             (ValInt 32),
           --
@@ -180,7 +198,17 @@ tests =
             "While loop decrement"
             (WhileLoop ("x", CstInt 10) (Eql (Var "x") (CstInt 10)) (Sub (Var "x") (CstInt 10))) 
             (ValInt 0),
-            --
+          --
+          evalTest
+            "Function application with stepping"
+            (Apply (Lambda "z" (Add (Var "z") (CstInt 3))) (CstInt 7))
+            (ValInt 10),
+          --
+          evalTest
+            "Function application with stepping 2"
+            (Apply (Lambda "x" (Mul (Var "x") (CstInt 4))) (CstInt 3))
+            (ValInt 12),
+          --
           evalTest 
             "While loop decrement with tuple"
               (WhileLoop ("x", Tuple [CstInt 10, CstInt 0]) 
@@ -192,8 +220,27 @@ tests =
             "While loop"
             (WhileLoop ("x", Tuple [CstInt 1,CstInt 10]) (If (Eql (Project (Var "x") 1) (CstInt 0)) (CstBool False) (CstBool True)) 
               (Tuple [Mul (Project (Var "x") 0) (CstInt 2),Sub (Project (Var "x") 1) (CstInt 1)]))
-            (ValTuple [ValInt 1024,ValInt 0])
+            (ValTuple [ValInt 1024, ValInt 0]),
           --
+          evalTest
+            "For loop with bound 0"
+            (ForLoop ("x", CstInt 1) ("i", CstInt 0) (Mul (Var "x") (CstInt 2)))
+            (ValInt 1),
+          --
+          evalTest
+            "While loop with initial false condition"
+            (WhileLoop ("x", CstInt 10) (Eql (Var "x") (CstInt 5)) (Sub (Var "x") (CstInt 1)))
+            (ValInt 10),
+          -- 
+          evalTestError
+            "For loop with non-integer bound"
+            (ForLoop ("x", CstInt 1) ("i", CstBool True) (Mul (Var "x") (CstInt 2)))
+            (== "Given bound must be of type integer"),
+          -- 
+          evalTestError
+            "While loop with non-boolean condition"
+            (WhileLoop ("x", CstInt 5) (CstInt 1) (Sub (Var "x") (CstInt 1)))
+            (== "Condition must evaluate to boolean")
         ],
       testGroup
         "Concurrency Operator Tests"

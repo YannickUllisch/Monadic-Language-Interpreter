@@ -33,7 +33,7 @@ stateInitial = []
 -- * Otherwise evaluate both one step.
 step :: Env -> State -> EvalM a -> (EvalM a, State)
 step _ s (Pure x) = (Pure x, s)
-step _ s (Free (StepOp next)) = (next, s)
+step _ s (Free (ErrorOp err)) = (Free (ErrorOp err), s)
 step e s (Free (ReadOp k)) = (k e, s)
 step _ s (Free (KvGetOp key next)) =
     case lookup key s of
@@ -41,7 +41,7 @@ step _ s (Free (KvGetOp key next)) =
         Nothing  -> (Free (KvGetOp key next), s)
 step _ s (Free (KvPutOp key val next)) =
     (next, (key, val) : s)
-step _ s (Free (ErrorOp err)) = (Free (ErrorOp err), s)
+step _ s (Free (StepOp next)) = (next, s)
 step e s (Free (BothOfOp e1 e2 next)) =
     let (e1', state1) = step e s e1
         (e2', state2) = step e state1 e2
@@ -66,5 +66,5 @@ runEval = runEval' envEmpty stateInitial
     runEval' _ _ (Pure x) = Right x
     runEval' _ _ (Free (ErrorOp err)) = Left err
     runEval' e s nxtStep =
-        let (nxtC, s') = step e s nxtStep
-        in runEval' e s' nxtC
+        let (cont, s') = step e s nxtStep
+        in runEval' e s' cont

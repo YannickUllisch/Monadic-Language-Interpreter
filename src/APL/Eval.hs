@@ -16,8 +16,7 @@ evalIntBinOp f e1 e2 = do
     (_, _) -> failure "Non-integer operand"
 
 evalIntBinOp' :: (Integer -> Integer -> Integer) -> Exp -> Exp -> EvalM Val
-evalIntBinOp' f e1 e2 =
-  evalIntBinOp f' e1 e2
+evalIntBinOp' f = evalIntBinOp f'
   where
     f' x y = pure $ f x y
 
@@ -59,7 +58,7 @@ eval (Apply e1 e2) = do
   v1 <- eval e1
   v2 <- eval e2
   case (v1, v2) of
-    (ValFun f_env var body, arg) -> do 
+    (ValFun f_env var body, arg) -> do
       evalStep $ localEnv (const $ envExtend var arg f_env) $ eval body
     (_, _) ->
       failure "Cannot apply non-function"
@@ -68,7 +67,7 @@ eval (KvPut k_exp v_exp) = do
   v <- eval v_exp
   evalKvPut k v
   pure v
-eval (KvGet k_exp) = do 
+eval (KvGet k_exp) = do
   k <- eval k_exp
   evalKvGet k
 eval (Tuple exps)
@@ -78,7 +77,7 @@ eval (Tuple exps)
       pure $ ValTuple vals
 eval (Project e1 i) = do
   res <- eval e1
-  case res of 
+  case res of
     ValTuple vals
       | i >= 0 && fromInteger i < length vals -> pure $ vals !! fromInteger i -- Indexing 
       | otherwise -> failure $ "Given index " ++ show i ++ " is out of bounds"
@@ -86,24 +85,24 @@ eval (Project e1 i) = do
 eval (ForLoop (name, initial) (cName, bound) body) = do
   v <- eval initial
   n <- eval bound
-  case n of 
+  case n of
     ValInt nc -> executeLoop 0 v nc
     _ -> failure "Given bound must be of type integer"
   where
     executeLoop i v n
       | i >= n = pure v -- case that loop is finished
-      | otherwise = do 
-        updated <- evalStep $ localEnv (envExtend cName (ValInt i) . envExtend name v) (eval body)
+      | otherwise = do
+        updated <- evalStep $ localEnv (envExtend cName (ValInt i) . envExtend name v) $ eval body
         executeLoop (i + 1) updated n
 eval (WhileLoop (name, initialExp) cond body) = do
   vExp <- eval initialExp
   loopWhile vExp
   where
     loopWhile v = do
-      condVal <- localEnv (envExtend name v) (eval cond)
+      condVal <- localEnv (envExtend name v) $ eval cond
       case condVal of
         ValBool True -> do
-          updated <- evalStep $ localEnv (envExtend name v) (eval body)
+          updated <- evalStep $ localEnv (envExtend name v) $ eval body
           loopWhile updated
         ValBool False -> pure v
         _ -> failure "Condition must evaluate to boolean"
