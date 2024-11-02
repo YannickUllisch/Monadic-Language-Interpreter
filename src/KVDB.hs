@@ -110,10 +110,10 @@ startKVDB = do
 -- thread writes the desired key with 'kvPut', after which this
 -- function returns the now available value.
 -- | We add constraint to the key type, to be
-kvGet :: (Eq k) =>  KVDB k v -> k -> IO v
+kvGet :: KVDB k v -> k -> IO v
 kvGet (KVDB s) key = requestReply s $ MsgGet key
 
 -- | Write a key-value mapping to the database. Replaces any prior
 -- mapping of the key.
-kvPut :: (Eq k) => KVDB k v -> k -> v -> IO ()
+kvPut :: KVDB k v -> k -> v -> IO ()
 kvPut (KVDB s) key val = sendTo s $ MsgPut key val 
