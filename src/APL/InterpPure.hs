@@ -8,7 +8,7 @@ stateInitial :: State
 stateInitial = []
 
 runEval :: EvalM a -> Either Error a
-runEval = fmap fst $ runEval' envEmpty stateInitial
+runEval = fst <$> runEval' envEmpty stateInitial
   where
     runEval' :: Env -> State -> EvalM a -> (Either Error a, State)
     runEval' _ s (Pure x) = (pure x, s)

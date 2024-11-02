@@ -90,7 +90,13 @@ tests =
       evalTest
         "e1 || e2 (first fails)"
         (OneOf (KvGet (CstInt 0)) (CstInt 1))
-        (ValInt 1)
+        (ValInt 1),
       --
-
+      evalTestFail
+        "Works only with concurrency 1"
+        (BothOf (KvGet (CstInt 0)) (KvPut (CstInt 0) (CstBool True))),
+      --
+      evalTestFail
+        "Works only with concurrency 2"
+        (BothOf (Add (KvGet (CstInt 0)) (CstInt 1)) (KvPut (CstInt 0) (CstInt 2)))
     ]

@@ -32,7 +32,39 @@ stateInitial = []
 --
 -- * Otherwise evaluate both one step.
 step :: Env -> State -> EvalM a -> (EvalM a, State)
-step = undefined
+step _ s (Pure x) = (Pure x, s)
+step _ s (Free (StepOp next)) = (next, s)
+step e s (Free (ReadOp k)) = (k e, s)
+step _ s (Free (KvGetOp key next)) =
+    case lookup key s of
+        Just val -> (next val, s)
+        Nothing  -> (Free (KvGetOp key next), s)
+step _ s (Free (KvPutOp key val next)) =
+    (next, (key, val) : s)
+step _ s (Free (ErrorOp err)) = (Free (ErrorOp err), s)
+step e s (Free (BothOfOp e1 e2 next)) =
+    let (e1', state1) = step e s e1
+        (e2', state2) = step e state1 e2
+    in case (e1', e2') of
+        (Free (ErrorOp err), _) -> (Free (ErrorOp err), state1)
+        (_, Free (ErrorOp err)) -> (Free (ErrorOp err), state2)
+        (Pure v1, Pure v2)      -> (next (ValTuple [v1, v2]), state2)
+        _ -> (Free (BothOfOp e1' e2' next), state2)
+step env s (Free (OneOfOp e1 e2 next)) =
+    let (e1', state1) = step env s e1
+        (e2', state2) = step env state1 e2
+    in case (e1', e2') of
+        (Free (ErrorOp err1), Free (ErrorOp _)) -> (Free (ErrorOp err1), state2)
+        (Pure v1, _) -> (next v1, state2)
+        (_, Pure v2) -> (next v2, state2)
+        _ -> (Free (OneOfOp e1' e2' next), state2)
 
 runEval :: EvalM a -> Either Error a
-runEval = undefined
+runEval = runEval' envEmpty stateInitial
+  where
+    runEval' :: Env -> State -> EvalM a -> Either Error a
+    runEval' _ _ (Pure x) = Right x
+    runEval' _ _ (Free (ErrorOp err)) = Left err
+    runEval' e s nxtStep =
+        let (nxtC, s') = step e s nxtStep
+        in runEval' e s' nxtC
