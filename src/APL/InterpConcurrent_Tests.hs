@@ -35,6 +35,16 @@ tests =
             (OneOf (Add (CstInt 1) (CstInt 2)) (Add (Add (Add (CstInt 3) (CstInt 4)) (CstInt 5)) (CstInt 6)))
             (ValInt 3),
           --
+          evalTest
+            "OneOf Right side is infinite loop"
+            (OneOf (Add (CstInt 1) (CstInt 2)) (WhileLoop ("x",CstInt 1) (Eql (Var "x") (CstInt 1)) (Var "x")))
+            (ValInt 3),
+          --
+          evalTest
+            "OneOf Right left is infinite loop"
+            (OneOf (WhileLoop ("x",CstInt 1) (Eql (Var "x") (CstInt 1)) (Var "x")) (Add (CstInt 1) (CstInt 2)))
+            (ValInt 3),
+          --  
           evalTest 
             "(1+2) && (3+4)"
             (BothOf (Add (CstInt 1) (CstInt 2)) (Add (CstInt 3) (CstInt 4)))

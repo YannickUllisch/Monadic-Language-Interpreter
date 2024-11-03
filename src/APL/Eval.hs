@@ -99,8 +99,8 @@ eval (WhileLoop (name, initialExp) cond body) = do
   loopWhile vExp
   where
     loopWhile v = do
-      condVal <- localEnv (envExtend name v) $ eval cond
-      case condVal of
+      evalCond <- localEnv (envExtend name v) $ eval cond
+      case evalCond of
         ValBool True -> do
           updated <- evalStep $ localEnv (envExtend name v) $ eval body
           loopWhile updated

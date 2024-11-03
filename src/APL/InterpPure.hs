@@ -19,19 +19,20 @@ runEval = fst <$> runEval' envEmpty stateInitial
         Just val -> runEval' r s $ k val
     runEval' r s (Free (KvPutOp key val m)) =
       let s' = (key, val) : filter ((/= key) . fst) s
-       in runEval' r s' m
+        in runEval' r s' m
     runEval' _ s (Free (ErrorOp e)) = (Left e, s)
     runEval' r s (Free (StepOp c)) = runEval' r s c
-    runEval' r s (Free (BothOfOp e1 e2 c)) =
-      let (res1, s') = runEval' r s e1
-          (res2, s'') = runEval' r s' e2
-      in case (res1, res2) of
-            (Right x, Right y) -> runEval' r s'' $ c (ValTuple [x, y])
-            (Left err, _) -> (Left err, s'')
-            (_, Left err) -> (Left err, s'')
+    runEval' r s (Free (BothOfOp e1 e2 c)) = do
+      let (res1, s1) = runEval' r s e1
+      let (res2, s2) = runEval' r s1 e2
+      
+      case (res1, res2) of
+            (Right x, Right y) -> runEval' r s2 $ c $ ValTuple [x, y]
+            (Left e, _) -> (Left e, s1)
+            (_, Left e) -> (Left e, s2)
     runEval' r s (Free (OneOfOp e1 e2 c)) =
       case runEval' r s e1 of
-        (Right res, s') -> runEval' r s' $ c res
-        (Left _, s') -> case runEval' r s' e2 of
-          (Right res2, s'') -> runEval' r s'' $ c res2
-          (Left err, s'') -> (Left err, s'')
+        (Right res, s1) -> runEval' r s1 $ c res
+        (Left _, s1) -> case runEval' r s1 e2 of
+          (Right res2, s2) -> runEval' r s2 $ c res2
+          (Left e, s2) -> (Left e, s2)

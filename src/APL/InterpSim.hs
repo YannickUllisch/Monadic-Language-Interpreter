@@ -13,24 +13,6 @@ stateInitial = []
 -- similarly. If the computation is stuck on a 'KvGetOp' for which the
 -- key is not in the state, then the computation is merely returned
 -- unchanged.
---
--- Evaluation of 'BothOp':
---
--- * If either of the nested computations are 'Free (ErrorOp ...)',
---   then propagate that error.
---
--- * If both are 'Pure', then return a pair of the results.
---
--- * Otherwise evaluate both one step.
---
--- Evaluation of 'OneOfOp':
---
--- * If both of the nested computations are 'Free (ErrorOp ...)', then
---   propagate one of the errors.
---
--- * If one is 'Pure', then return that result.
---
--- * Otherwise evaluate both one step.
 step :: Env -> State -> EvalM a -> (EvalM a, State)
 step _ s (Pure x) = (Pure x, s)
 step _ s (Free (ErrorOp err)) = (Free (ErrorOp err), s)
@@ -42,22 +24,37 @@ step _ s (Free (KvGetOp key next)) =
 step _ s (Free (KvPutOp key val next)) =
     (next, (key, val) : s)
 step _ s (Free (StepOp next)) = (next, s)
-step e s (Free (BothOfOp e1 e2 next)) =
-    let (e1', state1) = step e s e1
-        (e2', state2) = step e state1 e2
-    in case (e1', e2') of
-        (Free (ErrorOp err), _) -> (Free (ErrorOp err), state1)
-        (_, Free (ErrorOp err)) -> (Free (ErrorOp err), state2)
-        (Pure r1, Pure r2)      -> (next (ValTuple [r1, r2]), state2)
-        _ -> (Free (BothOfOp e1' e2' next), state2)
-step env s (Free (OneOfOp e1 e2 next)) =
-    let (e1', state1) = step env s e1
-        (e2', state2) = step env state1 e2
-    in case (e1', e2') of
-        (Free (ErrorOp err1), Free (ErrorOp _)) -> (Free (ErrorOp err1), state2)
-        (Pure v1, _) -> (next v1, state2)
-        (_, Pure v2) -> (next v2, state2)
-        _ -> (Free (OneOfOp e1' e2' next), state2)
+step e s (Free (BothOfOp e1 e2 next)) = do
+    -- Executing from left to right, ensuring state is correctly
+    -- updated in between 
+    let (res1, s1) = step e s e1
+    let (res2, s2) = step e s1 e2
+
+    case (res1, res2) of
+        (Free (ErrorOp err), _) -> (Free (ErrorOp err), s1)
+        (_, Free (ErrorOp err)) -> (Free (ErrorOp err), s2)
+        (Pure x, Pure y) -> (next (ValTuple [x, y]), s2)
+        _ -> (Free (BothOfOp res1 res2 next), s2)
+step e s (Free (OneOfOp e1 e2 next)) = do
+    -- Execute the first step of e1
+    let (res1, s1) = step e s e1
+
+    -- Implementation of logic that allows us
+    -- to stop potential infinite loops
+    case res1 of
+        Pure x -> (next x, s1)
+        Free (ErrorOp err) -> do
+            let (res2, s2) = step e s1 e2 
+            case res2 of
+                Pure y -> (next y, s2)
+                Free (ErrorOp _) -> (Free (ErrorOp err), s2)
+                _ -> (Free (OneOfOp res1 res2 next), s2)
+        _ -> do
+            -- Also evaluate e2 if e1 is not yet complete
+            let (res2, s2) = step e s1 e2
+            case (res1, res2) of
+                (_, Pure y) -> (next y, s2)
+                _ -> (Free (OneOfOp res1 res2 next), s2)
 
 runEval :: EvalM a -> Either Error a
 runEval = runEvalSim' envEmpty stateInitial
@@ -65,6 +62,6 @@ runEval = runEvalSim' envEmpty stateInitial
     runEvalSim' :: Env -> State -> EvalM a -> Either Error a
     runEvalSim' _ _ (Pure x) = Right x
     runEvalSim' _ _ (Free (ErrorOp err)) = Left err
-    runEvalSim' e s next =
+    runEvalSim' e s next = do
         let (cont, s') = step e s next
-        in runEvalSim' e s' cont
+        runEvalSim' e s' cont
