@@ -60,11 +60,11 @@ step env s (Free (OneOfOp e1 e2 next)) =
         _ -> (Free (OneOfOp e1' e2' next), state2)
 
 runEval :: EvalM a -> Either Error a
-runEval = runEval' envEmpty stateInitial
+runEval = runEvalSim' envEmpty stateInitial
   where
-    runEval' :: Env -> State -> EvalM a -> Either Error a
-    runEval' _ _ (Pure x) = Right x
-    runEval' _ _ (Free (ErrorOp err)) = Left err
-    runEval' e s next =
+    runEvalSim' :: Env -> State -> EvalM a -> Either Error a
+    runEvalSim' _ _ (Pure x) = Right x
+    runEvalSim' _ _ (Free (ErrorOp err)) = Left err
+    runEvalSim' e s next =
         let (cont, s') = step e s next
-        in runEval' e s' cont
+        in runEvalSim' e s' cont

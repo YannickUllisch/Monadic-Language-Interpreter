@@ -156,7 +156,7 @@ tests =
       testGroup
         "Get & Put Tests"
         [
-          --
+          -- Pure interpreter doesn't block so this won't cause any deadlocks
           evalTestFail
             "State (unknown key)"
             (KvGet (CstInt 0)),
@@ -282,12 +282,17 @@ tests =
             (BothOf (Div (CstInt 5) (CstInt 5) ) (Div (CstInt 2) (CstInt 0))),
           --
           evalTestFail
-            "BothOf failure in e2"
-            (BothOf (Div (CstBool True) (CstInt 5) ) (Div (CstBool True) (CstInt 0))),
+            "BothOf failure both Fail"
+            (BothOf (Div (CstInt 5) (CstBool True) ) (Div (CstInt 2) (CstInt 0))),
           --
-          evalTestFail
+           evalTestFail
             "OneOf Both Fail"
-            (OneOf (Div (CstInt 5) (CstInt 0)) (Div (CstInt 2) (CstInt 0))),  
+            (OneOf (Div (CstInt 5) (CstBool True)) (Div (CstInt 2) (CstInt 0))),  
+          --
+          evalTest
+            "OneOf Left Fails"
+            (OneOf (Div (CstInt 5) (CstInt 0)) (Div (CstInt 2) (CstInt 2)))
+            (ValInt 1),
           --
           evalTest
             "OneOf Right Fails"

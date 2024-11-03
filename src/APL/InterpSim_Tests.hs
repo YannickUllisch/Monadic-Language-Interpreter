@@ -46,13 +46,14 @@ tests =
             "BothOf failure in e2"
             (BothOf (Div (CstInt 5) (CstInt 5) ) (Div (CstInt 2) (CstInt 0))),
           --
+          --
           evalTestFail
-            "BothOf failure in e2"
-            (BothOf (Div (CstBool True) (CstInt 5) ) (Div (CstBool True) (CstInt 0))),
+            "BothOf failure both Fail"
+            (BothOf (Div (CstInt 5) (CstBool True) ) (Div (CstInt 2) (CstInt 0))),
           --
           evalTestFail
             "OneOf Both Fail"
-            (OneOf (Div (CstInt 5) (CstInt 0)) (Div (CstInt 2) (CstInt 0))),  
+            (OneOf (Div (CstInt 5) (CstBool True)) (Div (CstInt 2) (CstInt 0))),  
           --
           evalTest
             "OneOf Left Fails"
