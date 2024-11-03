@@ -28,7 +28,7 @@ runEval = fst <$> runEval' envEmpty stateInitial
       
       case (res1, res2) of
             (Right x, Right y) -> runEval' r s2 $ c $ ValTuple [x, y]
-            (Left e, _) -> (Left e, s1)
+            (Left e, _) -> (Left e, s1) -- Since we assume left to right execution, if first fails state updates from second should be ommitted
             (_, Left e) -> (Left e, s2)
     runEval' r s (Free (OneOfOp e1 e2 c)) =
       case runEval' r s e1 of

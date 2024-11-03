@@ -95,8 +95,8 @@ eval (ForLoop (name, initial) (cName, bound) body) = do
         updated <- evalStep $ localEnv (envExtend cName (ValInt i) . envExtend name v) $ eval body
         executeLoop (i + 1) updated n
 eval (WhileLoop (name, initialExp) cond body) = do
-  vExp <- eval initialExp
-  loopWhile vExp
+  e <- eval initialExp
+  loopWhile e
   where
     loopWhile v = do
       evalCond <- localEnv (envExtend name v) $ eval cond
