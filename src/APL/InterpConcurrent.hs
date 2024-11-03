@@ -53,7 +53,7 @@ runEval m = do
                     (Left e, _) -> pure (Left e)
                     (_, Left e) -> pure (Left e)
             (Done, _) -> pure $ Left "Second Job failed"
-            (_, Done) -> pure $ Left "Job 1 failed"
+            (_, Done) -> pure $ Left "First Job Failed"
             _ -> pure $ Left "Both jobs failed"
     runEvalCC' r spc db (Free (OneOfOp e1 e2 c)) = do
         -- Separate refs to avoid any write race conditions
@@ -73,11 +73,11 @@ runEval m = do
         }
 
         -- Wait for one of the jobs to be completed
-        (tmpId, reason) <- jobWaitAny spc [jid1, jid2]
+        (fstId, reason) <- jobWaitAny spc [jid1, jid2]
 
         -- Mapping first completed job and remaining job to a tuple
         -- we need these to correctly check job results for failures
-        let (fstId, sndId) = (tmpId, if tmpId == jid1 then jid2 else jid1)
+        let sndId = if fstId == jid1 then jid2 else jid1
 
         -- Helper function to find correct return value
         let readResult jid = readIORef $ if jid == jid1 then ref1 else ref2
@@ -103,7 +103,6 @@ runEval m = do
                                     _ -> pure $ Left "Both jobs failed"
                             _ -> pure $ Left "Error in JobId processing"
                             
-
         -- Checking results of Job and processing accordingly
         case reason of
             Done -> do
