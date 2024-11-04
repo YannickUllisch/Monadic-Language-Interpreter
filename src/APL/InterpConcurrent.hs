@@ -24,8 +24,8 @@ runEval m = do
       runEvalCC' r spc db cont
     runEvalCC' r spc db (Free (StepOp cont)) = runEvalCC' r spc db cont
     runEvalCC' r spc db (Free (BothOfOp e1 e2 c)) = do
-        ref1 <- newIORef (Left "Job not completed")
-        ref2 <- newIORef (Left "Job not completed")
+        ref1 <- newIORef $ Left "Job not completed"
+        ref2 <- newIORef $ Left "Job not completed"
 
         -- Running Jobs
         jid2 <- jobAdd spc $ Job {
@@ -50,15 +50,15 @@ runEval m = do
                 res2 <- readIORef ref2
                 case (res1, res2) of
                     (Right x, Right y) -> runEvalCC' r spc db $ c $ ValTuple [x, y]
-                    (Left e, _) -> pure (Left e)
-                    (_, Left e) -> pure (Left e)
+                    (Left e, _) -> pure $ Left e
+                    (_, Left e) -> pure $ Left e
             (Done, _) -> pure $ Left "Second Job failed"
             (_, Done) -> pure $ Left "First Job Failed"
             _ -> pure $ Left "Both jobs failed"
     runEvalCC' r spc db (Free (OneOfOp e1 e2 c)) = do
         -- Separate refs to avoid any write race conditions
-        ref1 <- newIORef (Left "Job not completed")
-        ref2 <- newIORef (Left "Job not completed")
+        ref1 <- newIORef $ Left "Job not completed"
+        ref2 <- newIORef $ Left "Job not completed"
 
         -- Running Jobs
         jid2 <- jobAdd spc $ Job {
