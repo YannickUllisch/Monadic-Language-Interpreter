@@ -86,14 +86,14 @@ eval (ForLoop (name, initial) (cName, bound) body) = do
   v <- eval initial
   n <- eval bound
   case n of
-    ValInt nc -> executeLoop 0 v nc
+    ValInt nc -> loopFor 0 v nc
     _ -> failure "Given bound must be of type integer"
   where
-    executeLoop i v n
+    loopFor i v n
       | i >= n = pure v -- case that loop is finished
       | otherwise = do
         updated <- evalStep $ localEnv (envExtend cName (ValInt i) . envExtend name v) $ eval body
-        executeLoop (i + 1) updated n
+        loopFor (i + 1) updated n
 eval (WhileLoop (name, initialExp) cond body) = do
   e <- eval initialExp
   loopWhile e
