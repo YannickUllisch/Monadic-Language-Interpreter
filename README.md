@@ -1,4 +1,4 @@
-# Advanced Programming Course Exam - Haskell Project
+# Course Project: Extension of a Monadic-Language-Interpreter
 
 This repository contains the code developed for the Advanced Programming Course Exam. The project extends a custom programming language, incorporating key functional programming concepts from the course, and showcases advanced Haskell techniques.
 
